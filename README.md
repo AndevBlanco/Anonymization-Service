@@ -16,3 +16,10 @@ To create your own database, you need to execute the following command:
 This will create your own database in your local directory with the name `database.csv`
 
 #### **Run server**
+The app has different arguments to run the server that they are:
+
+`py app.py -ps {random, secure} -m {cli, web}`
+
+**-ps will indicate if the pseudonym is either random or secure and reversible**
+**-m will indicate if the user wants to use the CLI or the WEB interface**
+
