@@ -1,13 +1,15 @@
 import csv
 from faker import Faker
+import random
+from termcolor import colored
 
 
-rows = []
-def create_database():
-    print("Creating own database")
-    with open('database.csv', 'w', newline='', encoding='utf-8') as f:
+def create_database(database_name):
+    rows = []
+    print(colored("Creating own database", "green"))
+    with open(database_name, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        columns = ['id', 'name', 'job','Gender', 'Birthdate', 'email', 'password', 'Mobile phone number', 'address', 'national identifier', 'security identifier']
+        columns = ['id', 'name', 'job','Gender', 'Age', 'email', 'password', 'Mobile phone number', 'zipcode', 'national identifier', 'security identifier']
         writer.writerow(columns)
         fake = Faker()
         for i in range(1, 1000):
@@ -16,11 +18,11 @@ def create_database():
                     fake.name(),
                     fake.job(),
                     fake.random_element(elements=('Male', 'Female')),
-                     fake.date_between(start_date='-60y', end_date='-21y'),
+                    random.randint(20,60),
                     fake.email(),
                     fake.password(),
-                    fake.phone_number(),
-                    fake.address(),
+                    str(random.randint(600000000, 999999999)),
+                    fake.postcode(),
                     fake.ssn(),
                     fake.uuid4()
                 ]
@@ -28,8 +30,9 @@ def create_database():
         # Guardar los datos en un archivo CSV
         writer = csv.writer(f)
         writer.writerows(rows)
-    print(f"Database created with {len(columns)} columns: {columns}")
+    print(colored(f"Database created with {len(columns)} columns: {columns}", "green"))
 
 
 if __name__ == '__main__':
-    create_database()
+    database_name = "database.csv"
+    create_database(database_name)
