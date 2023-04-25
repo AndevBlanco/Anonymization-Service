@@ -30,10 +30,10 @@ own_database_name = "database.csv"
 
 master_key = None
 
-def read_database(database_name):
+def read_database(database_name, database_path):
     print(colored("    >> Reading database","green"))
     try:
-        with open(database_name, 'r', newline='') as file:
+        with open(database_path, 'r', newline='') as file:
             reader = csv.reader(file)
             for row in reader:
                 if database_name == own_database_name:
@@ -47,7 +47,7 @@ def read_database(database_name):
 
         return False
     
-def generalize_database(database_name, columns):
+def generalize_database(database_name, database_path, columns):
     if database_name == own_database_name:
         columns = [4,7, 8]
         for row in rows_own_database[1:]:
@@ -55,10 +55,10 @@ def generalize_database(database_name, columns):
                 old_value = row[i]
                 try:
                     old_value = int(old_value)
-                    row[i] = generalizeNumericData(old_value)
+                    row[i] = generalize_numeric_data(old_value)
                 except ValueError:
-                    row[i] = generalizeCategoricalData(old_value)
-        with open(database_name, 'w', newline='') as file:
+                    row[i] = generalize_categorical_data(old_value)
+        with open(database_path, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(rows_own_database)
     else:
@@ -67,16 +67,16 @@ def generalize_database(database_name, columns):
                 old_value = row[i]
                 try:
                     old_value = int(old_value)
-                    row[i] = generalizeNumericData(old_value)
+                    row[i] = generalize_numeric_data(old_value)
                 except ValueError:
-                    row[i] = generalizeCategoricalData(old_value)
-        with open(database_name, 'w', newline='') as file:
+                    row[i] = generalize_categorical_data(old_value)
+        with open(database_path, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(rows)
     print(colored("    >> Database generalized","green"))
 
 
-def generalizeNumericData(number):
+def generalize_numeric_data(number):
     number_str = str(number)
     if len(number_str) >= 5:
         num_digits = len(number_str)
@@ -97,12 +97,12 @@ def generalizeNumericData(number):
         return f"[{lower_bound}-{upper_bound}]"
 
 
-def generalizeCategoricalData(value):
+def generalize_categorical_data(value):
     print(value)
 
 
 # Get master key to decrypt or encrypt pseudonyms file
-def getMasterKey():
+def get_master_key():
     if not(os.path.isfile("masterkey.key")):
         MASTER_KEY =  os.urandom(32)
         nonce = os.urandom(12)
@@ -117,29 +117,29 @@ def getMasterKey():
     return MASTER_KEY, nonce
 # This function pseudonym database.
 ## TO DO OTHER DATABASE, use columns parameter
-def pseudonym_database(database_name, columns):
+def pseudonym_database(database_name, database_path, columns):
     print(colored("    >> Pseudonymizing database","green"))
     pseudonyms ={}
     if database_name == own_database_name:
         for row in rows_own_database[1:]:
             old_value = row[1]
             row[1] = create_pseudonym(old_value,pseudonyms)
-        with open(database_name, 'w', newline='') as file:
+        with open(database_path, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(rows_own_database)
     else:
         for row in rows:
             old_value = row[1]
             row[1] = create_pseudonym(old_value,pseudonyms)
-        with open(database_name, 'w', newline='') as file:
+        with open(database_path, 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(rows)
     print(colored("    >> Database pseudonymized","green"))
     if "pseudonyms" in args and args.pseudonyms == "secure":
-        key, nonce = getMasterKey()
+        key, nonce = get_master_key()
         cipher = Cipher(algorithm=algorithms.AES256(key), mode=modes.GCM(nonce), backend=default_backend())
         encryptor = cipher.encryptor()
-        with open(database_name[0:len(database_name)-4]+"_pseudonyms.json", 'wb') as f:
+        with open(database_path[0:len(database_path)-4]+"_pseudonyms.json", 'wb') as f:
                 f.write(encryptor.update(json.dumps(pseudonyms).encode('utf-8')))        
     print(colored("    >> Created pseudonym dictionary file","green"))
 # Generar un pseudónimo para un nombre
@@ -150,11 +150,11 @@ def create_pseudonym(name,pseudonyms):
     pseudonyms[pseudonym] = name
     return pseudonym
 
-def get_secured_id_from_pseudonym(database_name, pseudonym):
-    key, nonce = getMasterKey()
+def get_secured_id_from_pseudonym(database_path, pseudonym):
+    key, nonce = get_master_key()
     cipher = Cipher(algorithm=algorithms.AES256(key), mode=modes.GCM(nonce), backend=default_backend())
     decryptor = cipher.decryptor()
-    with open(database_name[0:len(database_name)-4]+"_pseudonyms.json", 'rb') as f:
+    with open(database_path[0:len(database_path)-4]+"_pseudonyms.json", 'rb') as f:
         decrypted = decryptor.update(f.read()).decode('utf-8')   
         pseudonyms = json.loads(decrypted)
     return pseudonyms[pseudonym]
@@ -169,7 +169,8 @@ def list_current_databases(use_local_database, database_path):
         if databases:
             print(colored(f"{'Local' if use_local_database else 'External'} databases:","yellow"))
             for file in databases:
-                print(colored(f"- {file.name}", "yellow"))
+                if file.name.endswith(".csv"):
+                    print(colored(f"- {file.name}", "yellow"))
 
 def _use_local_database(database_type) -> bool:
     if database_type == 'l' or database_type == 'local':
@@ -182,6 +183,13 @@ def _use_local_database(database_type) -> bool:
 def _get_databases_folder(use_local_database):
     return "local-databases" if use_local_database else "external-databases"
 
+def _list_databases_and_read_new_database(use_local_database, databases_folder):
+    # List current databases        
+        list_current_databases(use_local_database, databases_folder)
+        database_name = input(colored("Introduce a database to be anonymized\n", color="yellow"))
+        database_path = f"{databases_folder}/{database_name}"
+        read = read_database(database_name, database_path)
+        return database_name, database_path, read
 
 if __name__ == '__main__':
     if args.mode == "cli":
@@ -195,29 +203,24 @@ if __name__ == '__main__':
         if create_new == "y" or create_new == "yes":
             new_database_name = input(colored("Please, introduce the name of the new database\n", color='yellow'))
             create_own_database.create_database(new_database_name, database_type)
-        # List current databases        
-        list_current_databases(use_local_database, databases_folder)
-
-        database_name = input(colored("Introduce a database to be anonymized\n", color="yellow"))
-        read = read_database(f"{databases_folder}/{database_name}")
+        
+        database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
         while not read:
-            database_name = input(colored("Introduce a database to be anonymized\n","yellow"))
-            read = read_database(f"{databases_folder}/{database_name}")
+            database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
+            
         while True:  
             option = input(colored("Introduce an option to proceed with the anonymization: \n 1. Pseudonymize the database\n 2. Get ID from pseudonym (after option 1)\n 3. Generalize database.\n 4. Change database \n 5. Change to web interface \n 6. To exit the app, introduce either 'exit' or 6\n","yellow"))
             if option == "1":
-                pseudonym_database(f"{databases_folder}/{database_name}", None)
+                pseudonym_database(database_name, database_path, None)
             elif option == "2":
                 pseudonym = input(colored("Introduce a pseudonym to translate\n","yellow"))
-                print(colored(f"The ID associated with pseudonym {pseudonym} is: {get_secured_id_from_pseudonym(database_name, pseudonym)}","blue"))
+                print(colored(f"The ID associated with pseudonym {pseudonym} is: {get_secured_id_from_pseudonym(database_path, pseudonym)}","blue"))
             elif option == "3":
-                generalize_database(f"{databases_folder}/{database_name}", None)
+                generalize_database(database_name, database_path, None)
             elif option == "4":
-                database_name = input(colored("Introduce a database\n","yellow"))
-                read = read_database(f"{databases_folder}/{database_name}")
+                database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
                 while not read:
-                    database_name = input(colored("Introduce a database\n","yellow"))
-                    read = read_database(f"{databases_folder}/{database_name}")
+                    database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
             elif option == "5":
                 app.run()
             elif option == "6" or option == "exit":
