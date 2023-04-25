@@ -6,24 +6,24 @@ from termcolor import colored
 import pandas as pd
 
 
-def create_database(database_name: str, database_type: str):
-    if database_type == 'l' or database_type == 'local':
+def create_database(database_name: str, use_local_database: bool):
+    if use_local_database:
         create_local_database(database_name)
-    elif database_type == 'e' or database_type == 'external':
-        create_external_database(database_name)
     else:
-        raise ValueError(f"Unknown database type: {database_type}")
-
+        create_external_database(database_name)
+    
 def create_external_database(database_name: str):
-    column_names = ["chk_acct", "duration", "credit_history", "purpose", "amount", "saving_acct", "present_emp", "installment_rate", "sex", "other_debtor",                   "present_resid", "property", "age", "other_install", "housing", "n_credits", "job", "n_people", "telephone", "foreign", "response"]
-    print(type(column_names))
-    data = pd.read_csv(f"external-data/{database_name}", sep=" ", names=column_names)
+    external_databases_folder = "external-databases"
+    os.makedirs(name=external_databases_folder, exist_ok=True)
+    external_database = f"external-data/german.data"
+    column_names = ["chk_acct", "duration", "credit_history", "purpose", "amount", "saving_acct", "present_emp", "installment_rate", "sex", "other_debtor", "present_resid", "property", "age", "other_install", "housing", "n_credits", "job", "n_people", "telephone", "foreign", "response"]
+
+    data = pd.read_csv(external_database, sep=" ", names=column_names)
     
     relevant_numerical_columns = ["duration", "amount", "age"]
-    relevant_categorical_columns = ["sex", "purpose", "credit_history", "housing"]
+    relevant_categorical_columns = ["purpose", "credit_history", "housing"]
     relevant_columns = relevant_numerical_columns + relevant_categorical_columns
     data = data[relevant_columns]
-    print(data)
 
     value_mapping = {
         # purpose
@@ -51,15 +51,19 @@ def create_external_database(database_name: str):
     }
     for col in relevant_categorical_columns:
         data[col] = data[col].map(value_mapping).fillna(data[col])
-    print(data)
+
+    data = data.rename_axis('id').reset_index()
+    data['id'] += 1
+    data.to_csv(f"{external_databases_folder}/{database_name}", sep=',', index=False)
+    print(colored(f"External database created with {len(data.columns)} columns: {data.columns}", "green"))
 
 
 def create_local_database(database_name: str):
+    local_databases_folder = "local-databases"
+    os.makedirs(name=local_databases_folder, exist_ok=True)
     dataset_length = 200
     rows = []
     print(colored("Creating own database", "green"))
-    local_databases_folder = "local-databases"
-    os.makedirs(name=local_databases_folder, exist_ok=True)
     with open(f"{local_databases_folder}/{database_name}", 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         columns = ['id', 'name', 'job','Gender', 'Age', 'email', 'password', 'Mobile phone number', 'zipcode', 'national identifier', 'security identifier']
@@ -83,12 +87,12 @@ def create_local_database(database_name: str):
         # Guardar los datos en un archivo CSV
         writer = csv.writer(f)
         writer.writerows(rows)
-    print(colored(f"Database created with {len(columns)} columns: {columns}", "green"))
+    print(colored(f"Local database created with {len(columns)} columns: {columns}", "green"))
 
 
 if __name__ == '__main__':
-    # database_name = "database.csv"
+    # database_name = "db.csv"
     # database_type = "local"
-    database_name = "german.data"
+    database_name = "db.csv"
     database_type = "external"
     create_database(database_name, database_type)

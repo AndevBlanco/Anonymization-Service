@@ -202,7 +202,7 @@ if __name__ == '__main__':
         create_new = input(colored("Do you want to create a new database? (y/n)\n", color='yellow'))
         if create_new == "y" or create_new == "yes":
             new_database_name = input(colored("Please, introduce the name of the new database\n", color='yellow'))
-            create_own_database.create_database(new_database_name, database_type)
+            create_own_database.create_database(new_database_name, use_local_database)
         
         database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
         while not read:
