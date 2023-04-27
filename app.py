@@ -1,12 +1,15 @@
+import pandas as pd
+import numpy as np
+import csv, json, os, bson, random
+from pandas.api.types import is_integer_dtype, is_float_dtype
 from dotenv import load_dotenv
 from flask import Flask, render_template
 from argparse import ArgumentParser
 from faker import Faker
-import csv, json, os,bson, random
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-import create_own_database
 from termcolor import colored
+import create_own_database
 
 load_dotenv()
 
@@ -163,6 +166,37 @@ def get_secured_id_from_pseudonym(database_path, pseudonym):
 def index():
     return render_template('index.html')
 
+
+def add_noise(df:pd.DataFrame, column:str, std_percentage:float=1, round_decimals:int=2) -> pd.DataFrame:
+    # first get standard deviation for this column
+    std = df[column].std()
+    # only use a certain percentage of standard deviation
+    std *= std_percentage
+    # then use this as the interval to add the random noise
+    if is_integer_dtype(df[column]):
+        df[column] = df[column].map(lambda x : x + random.randint(-round(std), round(std)))
+    elif is_float_dtype(df[column]):
+        df[column] = df[column].map(lambda x : round(x + random.uniform(-std, std), round_decimals))
+    else:
+        raise ValueError(f"dtype {df[column].dtype} not supported")
+    return df
+
+def permutate_column(df:pd.DataFrame, column:str, perm_percentage:float):
+    series = df[column]
+    # Get the number of values to swap
+    n = int(len(series) * perm_percentage)
+    # Generate random indices to swap
+    swap_indices = np.random.choice(len(series), size=n, replace=False)
+    # Shuffle the values at the swap indices
+    swapped_values = series.iloc[swap_indices].sample(frac=1).values
+    # Create a copy of the original series
+    new_series = series.copy()
+    # Swap the values at the swap indices
+    new_series.iloc[swap_indices] = swapped_values
+    df[column] = new_series
+    return df
+
+
 def list_current_databases(use_local_database, database_path):
     if os.path.isdir(database_path):
         databases = os.scandir(database_path)
@@ -192,6 +226,15 @@ def _list_databases_and_read_new_database(use_local_database, databases_folder):
         return database_name, database_path, read
 
 if __name__ == '__main__':
+    ### Example on how to use noise addition and permutation
+    # df = pd.DataFrame({'person_id': [0, 1, 2, 3],
+    #                'age': [21, 25, 62, 43],
+    #                'height': [1.61, 1.87, 1.49, 2.01]}
+    #               ).set_index('person_id')
+    # df = add_noise(df, column='age', std_percentage=0.3)
+    # df = add_noise(df, column='height', std_percentage=0.3)
+    # df = permutate_column(df, column="age", perm_percentage=0.5)
+
     if args.mode == "cli":
         # Get database type
         database_type = input(colored("Do you want to use a local or external database? (l/e)\n", color='yellow'))
@@ -204,7 +247,7 @@ if __name__ == '__main__':
             new_database_name = input(colored("Please, introduce the name of the new database\n", color='yellow'))
             create_own_database.create_database(new_database_name, use_local_database)
         
-        database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
+        read = None
         while not read:
             database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
             
@@ -218,7 +261,7 @@ if __name__ == '__main__':
             elif option == "3":
                 generalize_database(database_name, database_path, None)
             elif option == "4":
-                database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
+                read = None
                 while not read:
                     database_name, database_path, read = _list_databases_and_read_new_database(use_local_database, databases_folder)
             elif option == "5":
