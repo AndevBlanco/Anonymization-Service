@@ -106,13 +106,16 @@ def get_master_key():
 ## TODO: use columns parameter
 def pseudonym_database(database_path, use_local_database):
     if not use_local_database:
-        print(colored("For external database, there are no identifiers", "green"))
+        print(colored("For external database, there are no identifiers", "blue"))
         return
     
-    print(colored("    >> Pseudonymizing database","green"))
     df = read_database(database_path)
-    
-    pseudonyms ={}
+    if "name" not in df.columns:
+        print(colored("Identifiers have already been removed from database", "blue"))
+        return
+
+    pseudonyms = {}
+    print(colored("    >> Pseudonymizing database","green"))
     df["name"] = df["name"].apply(lambda x : create_pseudonym(x, pseudonyms))
     write_database(df, database_path)
     print(colored("    >> Database pseudonymized","green"))
