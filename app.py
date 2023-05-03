@@ -135,7 +135,6 @@ def _input_identifier_columns(database_path: str, anonymize_data):
     return df, remaining_identifier_columns, selected_identifier_columns
 
 # This function pseudonym database.
-## TODO: use columns parameter
 def pseudonym_database(database_path, use_local_database):
     if not use_local_database:
         print(colored("For external database, there are no identifiers", "blue"))
@@ -368,7 +367,7 @@ def main():
             elif option == "4":
                 generalize_database(database_path)
             elif option == "5":
-                database_path, database = _list_databases_and_read_new_database(use_local_database, databases_folder)
+                database_path = _list_databases_and_read_new_database(use_local_database, databases_folder)
                 perturb_database(database_path)
             elif option == "6":
                 kanonymization(database_path=database_path, use_local_database=use_local_database)
