@@ -6,10 +6,13 @@ from dotenv import load_dotenv
 from flask import Flask, render_template
 from argparse import ArgumentParser
 from faker import Faker
+import csv, json, os, bson
+import pandas as pd
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from termcolor import colored
 import create_own_database
+from kanonymity import generalize, suppress, is_k_anonymous
 
 load_dotenv()
 
@@ -157,6 +160,42 @@ def get_secured_id_from_pseudonym(database_path, pseudonym):
         pseudonyms = json.loads(decrypted)
     return pseudonyms[pseudonym]
 
+def is_k_anonymous(group, k):
+    return len(group) >= k
+
+def kanonymization(database_path:str, use_local_database:bool):
+    if use_local_database:
+        data = pd.read_csv(database_path, sep=",")
+        # List of sensitive columns to be anonymized
+        sensitive_attributes = ['Age', 'Gender']
+
+        k = 2
+        grouped_data = data.groupby(sensitive_attributes)
+
+        # Data anonymization
+        anon_data = pd.DataFrame(columns=data.columns)
+        for group_name, group in grouped_data:
+            if is_k_anonymous(group, k):
+                anon_group = pd.DataFrame(columns=data.columns)
+                for column in group.columns:
+                    if column in sensitive_attributes:
+                        anon_group[column] = generalize(group[column], 1)
+                    else:
+                        anon_group[column] = group[column]
+                anon_data = pd.concat([anon_data, anon_group])
+            else:
+                anon_group = pd.DataFrame(columns=data.columns)
+                for column in group.columns:
+                    anon_group[column] = suppress(group[column])
+                anon_data = pd.concat([anon_data, anon_group])
+
+        # pd.set_option('display.max_columns', None)
+        pd.set_option('display.max_rows', None)
+        print(anon_data)
+
+    else:
+        print("...")
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -257,9 +296,10 @@ def main():
                 2. Get ID from pseudonym (after option 1)
                 3. Generalize database.
                 4. Perturb the database.
-                5. Change database
-                6. Change to web interface
-                7. To exit the app, introduce either 'exit' or 6
+                5. K anonymize the database.
+                6. Change database
+                7. Change to web interface
+                8. To exit the app, introduce either 'exit' or 6
                 """,
                 "yellow"))
             if option == "1":
@@ -272,10 +312,12 @@ def main():
             elif option == "4":
                 perturb_database(database_path=database_path, use_local_database=use_local_database)
             elif option == "5":
-                database_path, database = _list_databases_and_read_new_database(use_local_database, databases_folder)
+                kanonymization(database_path=database_path, use_local_database=use_local_database)
             elif option == "6":
+                database_path, database = _list_databases_and_read_new_database(use_local_database, databases_folder)
+            elif option == "7":
                 app.run()
-            elif option == "7" or option == "exit":
+            elif option == "8" or option == "exit":
                 print(colored("Leaving the app. See you soon :)","magenta"))
                 break
             else:
