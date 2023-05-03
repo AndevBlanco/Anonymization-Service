@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import csv, json, os, bson, random
-from pandas.api.types import is_integer_dtype, is_float_dtype
+from pandas.api.types import is_numeric_dtype, is_integer_dtype, is_float_dtype
 from dotenv import load_dotenv
 from flask import Flask, render_template
 from argparse import ArgumentParser
@@ -24,57 +24,44 @@ parser.add_argument("-i", "--import", dest="import", required=False, help="Impor
 parser.add_argument("-a", "--anonymization", dest="anonymization", required=False, help="Anonymization")
 parser.add_argument("-ps", "--pseudonyms",choices=['random', 'secure'], dest="pseudonyms", default='secure', required=False, help="This attribuye will indicate if the pseudonyms are randoms or reversable and secure")
 parser.add_argument("-m", "--mode",choices=['cli', 'web'], dest="mode", default='cli', required=False, help="This attribuye will indicate if the user wants to use the CLI or the WEB interface")
-
-fake = Faker()
-
 args = parser.parse_args()
 print(args)
 
+fake = Faker()
 
 master_key = None
 
-def read_database(database_path, use_local_database):
+local_db_identifiers = ["name", "email", "Mobile phone number", "national identifier", "security identifier"]
+
+def read_database(database_path):
     print(colored("    >> Reading database","green"))
-    if use_local_database:
-        local_database_rows = []
-        with open(database_path, 'r', newline='') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                local_database_rows.append(row)
-        return local_database_rows
-    else:
-        df = pd.read_csv(database_path, sep=",")
-        return df
+    df = pd.read_csv(database_path, sep=",")
+    return df
+
+def write_database(df, database_path):
+    df.to_csv(database_path, sep=',', index=False)
+
+
+def remove_identifiers_local_db(database_path, use_local_database):
+    if not use_local_database:
+        print(colored("External database does not contain any identifiers.", "red"))
+        return
+    df = read_database(database_path)
+    columns_without_identifiers = [x for x in df.columns if x not in local_db_identifiers]
+    df = df[columns_without_identifiers]
+    write_database(df, database_path)
 
     
-def generalize_database(database, database_path, columns, use_local_database):
-    if use_local_database:
-        local_database_rows = database
-        columns = [4,7, 8]
-        for row in local_database_rows[1:]:
-            for i in columns:
-                old_value = row[i]
-                try:
-                    old_value = int(old_value)
-                    row[i] = generalize_numeric_data(old_value)
-                except ValueError:
-                    # TODO: implement
-                    # row[i] = generalize_categorical_data(old_value)
-                    pass
-        with open(database_path, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(local_database_rows)
-    else:
-        # TODO: implement with pandas
-        df = database
-        for column in df.columns[1:]:
-            if is_integer_dtype(df[column]):
-                df[column] = df[column].apply(lambda x : generalize_numeric_data(x))
-            else:
-                # TODO: implement
-                # df[column] = df[column].apply(lambda x : generalize_categorical_data(x))
-                pass
-        df.to_csv(database_path, sep=',', index=False)
+def generalize_database(database_path):
+    df = read_database(database_path)
+    for column in df.columns[1:]:
+        if is_integer_dtype(df[column]):
+            df[column] = df[column].apply(lambda x : generalize_numeric_data(x))
+        else:
+            # TODO: implement
+            # df[column] = df[column].apply(lambda x : generalize_categorical_data(x))
+            pass
+    write_database(df, database_path)
     print(colored("    >> Database generalized","green"))
 
 
@@ -119,22 +106,23 @@ def get_master_key():
             nonce = file["nonce"]
     return MASTER_KEY, nonce
 # This function pseudonym database.
-## TO DO OTHER DATABASE, use columns parameter
-def pseudonym_database(database, database_path, use_local_database):
+## TODO: use columns parameter
+def pseudonym_database(database_path, use_local_database):
+    if not use_local_database:
+        print(colored("For external database, there are no identifiers", "blue"))
+        return
+    
+    df = read_database(database_path)
+    if "name" not in df.columns:
+        print(colored("Identifiers have already been removed from database", "blue"))
+        return
+
+    pseudonyms = {}
     print(colored("    >> Pseudonymizing database","green"))
-    pseudonyms ={}
-    if use_local_database:
-        local_database_rows = database
-        for row in local_database_rows[1:]:
-            old_value = row[1]
-            row[1] = create_pseudonym(old_value,pseudonyms)
-        with open(database_path, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(local_database_rows)
-    else:
-        # TODO: implement with pandas
-        pass
+    df["name"] = df["name"].apply(lambda x : create_pseudonym(x, pseudonyms))
+    write_database(df, database_path)
     print(colored("    >> Database pseudonymized","green"))
+
     if "pseudonyms" in args and args.pseudonyms == "secure":
         key, nonce = get_master_key()
         cipher = Cipher(algorithm=algorithms.AES256(key), mode=modes.GCM(nonce), backend=default_backend())
@@ -142,6 +130,21 @@ def pseudonym_database(database, database_path, use_local_database):
         with open(database_path[0:len(database_path)-4]+"_pseudonyms.json", 'wb') as f:
             f.write(encryptor.update(json.dumps(pseudonyms).encode('utf-8')))        
     print(colored("    >> Created pseudonym dictionary file","green"))
+
+def reverse_pseudonym_database(database_path, use_local_database):
+    if not use_local_database:
+        print(colored("For external database, there are no identifiers", "green"))
+        return
+    if not os.path.isfile(database_path[0:len(database_path)-4]+"_pseudonyms.json"):
+        print(colored(f"There is no dictionary of pseudonyms for local database '{database_path.split('/')[1]}'. Please pseudonymize your database before.",
+                      "red"))
+        return
+    pseudonym = input(colored("Introduce a pseudonym to translate\n","yellow"))
+    secured_id = get_secured_id_from_pseudonym(database_path, pseudonym)
+    if secured_id:
+        print(colored(f"The ID associated with pseudonym {pseudonym} is: {secured_id}","blue"))
+    else:
+        print(colored(f"There is no ID associated with pseudonym {pseudonym}.","red"))
 
 # Generar un pseudónimo para un nombre
 def create_pseudonym(name,pseudonyms):
@@ -158,7 +161,7 @@ def get_secured_id_from_pseudonym(database_path, pseudonym):
     with open(database_path[0:len(database_path)-4]+"_pseudonyms.json", 'rb') as f:
         decrypted = decryptor.update(f.read()).decode('utf-8')   
         pseudonyms = json.loads(decrypted)
-    return pseudonyms[pseudonym]
+    return pseudonyms.get(pseudonym)
 
 def is_k_anonymous(group, k):
     return len(group) >= k
@@ -201,18 +204,14 @@ def index():
     return render_template('index.html')
 
 
-def perturb_database(database_path:str, use_local_database:bool):
-    if use_local_database:
-        numeric_columns = [4]
-        # TODO: implement
-        pass
-    else:
-        numeric_columns = ["duration", "amount", "age"]
-        df = pd.read_csv(database_path, sep=",")
-        for column in numeric_columns:
-            df = add_noise(df=df, column=column)
-            df = permutate_column(df=df, column=column)
-        df.to_csv(database_path, sep=',', index=False)
+def perturb_database(database_path:str):
+    read_database(database_path)
+    numeric_columns = [column_name for column_name in df.columns if is_numeric_dtype(df[column_name]) and column_name != "id"]
+    print(numeric_columns)
+    for column in numeric_columns:
+        df = add_noise(df=df, column=column)
+        df = permutate_column(df=df, column=column)
+    write_database(df, database_path)
 
 
 def add_noise(df:pd.DataFrame, column:str, std_percentage:float=0.3, round_decimals:int=2) -> pd.DataFrame:
@@ -267,11 +266,16 @@ def _get_databases_folder(use_local_database):
 
 def _list_databases_and_read_new_database(use_local_database, databases_folder):
     # List current databases
-    list_current_databases(use_local_database, databases_folder)
-    database_name = input(colored("Introduce a database to be anonymized\n", color="yellow"))
-    database_path = f"{databases_folder}/{database_name}"
-    database = read_database(database_path, use_local_database)
-    return database_path, database
+    database_selected = False
+    while not database_selected:
+        list_current_databases(use_local_database, databases_folder)
+        database_name = input(colored("Introduce a database to be anonymized\n", color="yellow"))
+        database_path = f"{databases_folder}/{database_name}"
+        if os.path.isfile(database_path):
+            database_selected = True
+        else:
+            print(colored(f"Could not find database with name '{database_name}'", "red"))
+    return database_path
 
 def main():
     if args.mode == "cli":
@@ -279,6 +283,7 @@ def main():
         database_type = input(colored("Do you want to use a local or external database? (l/e)\n", color='yellow'))
         use_local_database = _use_local_database(database_type)
         databases_folder = _get_databases_folder(use_local_database)
+
         print(colored(f"Using {'local' if use_local_database else 'external'} database", "yellow"))
         # Create new database?
         create_new = input(colored("Do you want to create a new database? (y/n)\n", color='yellow'))
@@ -286,7 +291,7 @@ def main():
             new_database_name = input(colored("Please, introduce the name of the new database\n", color='yellow'))
             create_own_database.create_database(new_database_name, use_local_database)
         
-        database_path, database = _list_databases_and_read_new_database(use_local_database, databases_folder)
+        database_path = _list_databases_and_read_new_database(use_local_database, databases_folder)
             
         while True:
             option = input(colored(
@@ -294,30 +299,33 @@ def main():
                 Introduce an option to proceed with the anonymization:
                 1. Pseudonymize the database
                 2. Get ID from pseudonym (after option 1)
-                3. Generalize database.
-                4. Perturb the database.
-                5. K anonymize the database.
-                6. Change database
-                7. Change to web interface
-                8. To exit the app, introduce either 'exit' or 6
+                3. Remove identifiers (local database only)
+                4. Generalize database.
+                5. Perturb the database.
+                6. K anonymize the database.
+                7. Change database
+                8. Change to web interface
+                9. To exit the app, introduce either 'exit' or 9
                 """,
                 "yellow"))
             if option == "1":
-                pseudonym_database(database, database_path=database_path, use_local_database=use_local_database)
+                pseudonym_database(database_path, use_local_database=use_local_database)
             elif option == "2":
-                pseudonym = input(colored("Introduce a pseudonym to translate\n","yellow"))
-                print(colored(f"The ID associated with pseudonym {pseudonym} is: {get_secured_id_from_pseudonym(database_path, pseudonym)}","blue"))
+                reverse_pseudonym_database(database_path, use_local_database)
             elif option == "3":
-                generalize_database(database, database_path=database_path, columns=None, use_local_database=use_local_database)
+                remove_identifiers_local_db(database_path, use_local_database)
             elif option == "4":
-                perturb_database(database_path=database_path, use_local_database=use_local_database)
+                generalize_database(database_path)
             elif option == "5":
-                kanonymization(database_path=database_path, use_local_database=use_local_database)
-            elif option == "6":
                 database_path, database = _list_databases_and_read_new_database(use_local_database, databases_folder)
+                perturb_database(database_path)
+            elif option == "6":
+                kanonymization(database_path=database_path, use_local_database=use_local_database)
             elif option == "7":
+                database_path = _list_databases_and_read_new_database(use_local_database, databases_folder)
+            elif option == "8":
                 app.run()
-            elif option == "8" or option == "exit":
+            elif option == "9" or option == "exit":
                 print(colored("Leaving the app. See you soon :)","magenta"))
                 break
             else:
