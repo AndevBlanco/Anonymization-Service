@@ -9,8 +9,32 @@
     <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </head>
-<body>
+<body style="background-color: #c3dbf3;">
     <div class="row justify-content-center">
+        <div class="col-10">
+            <div class="card my-5 shadow-lg bg-white rounded">
+                <h2 class="card-header">Anonimyzation</h2>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-auto">
+                            <label for="database">Select database</label>
+                        </div>
+                        <div class="col-4">
+                            <select class="form-select w-50" id="database" aria-label="Select database">
+                                {% for file in files %}
+                                  <option value="{{ file }}">{{ file }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <h4>Tabla de datos</h4>
+                    {{ table | safe }}
+                </div>
+            </div>
+        </div>
+    </div> 
+    
+    <!-- <div class="row justify-content-center">
         <div class="col-auto">
             <h4>Anonimyzation</h4>
         </div>
@@ -43,6 +67,6 @@
             </div>
         </div>
     </div>
-    
+     -->
 </body>
 </html>

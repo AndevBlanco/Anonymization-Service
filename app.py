@@ -245,13 +245,22 @@ def kanonymization(database_path:str, use_local_database:bool):
         # pd.set_option('display.max_columns', None)
         pd.set_option('display.max_rows', None)
         print(anon_data)
+        anon_data.to_csv("database_kanomymized.csv", index=False)
 
     else:
-        print("...")
+        print(colored("For external database, there are no k anonymity", "blue"))
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    files = []
+    if os.path.isdir('./local-databases'):
+        files = [f for f in os.listdir('./local-databases') if not f.startswith('original_')]
+    if os.path.isdir('./external-databases'):
+        files += [f for f in os.listdir('./external-databases') if not f.startswith('original_')]
+    
+    df = pd.read_csv('./original_database.csv')
+    html_table = df.to_html(classes="table table-striped")
+    return render_template('index.html', table=html_table, files=files)
 
 
 def perturb_database(database_path:str):
@@ -321,11 +330,12 @@ def _list_databases_and_read_new_database(use_local_database, databases_folder):
         list_current_databases(use_local_database, databases_folder)
         database_name = input(colored("Introduce a database to be anonymized\n", color="yellow"))
         database_path = f"{databases_folder}/{database_name}"
+        database_path_original = f"{databases_folder}/original_{database_name}"
         if os.path.isfile(database_path):
             database_selected = True
         else:
             print(colored(f"Could not find database with name '{database_name}'", "red"))
-    return database_path
+    return database_path, database_path_original
 
 def main():
     if args.mode == "cli":
@@ -341,7 +351,7 @@ def main():
             new_database_name = input(colored("Please, introduce the name of the new database\n", color='yellow'))
             create_own_database.create_database(new_database_name, use_local_database)
         
-        database_path = _list_databases_and_read_new_database(use_local_database, databases_folder)
+        database_path, database_path_original = _list_databases_and_read_new_database(use_local_database, databases_folder)
             
         while True:
             option = input(colored(
@@ -367,12 +377,12 @@ def main():
             elif option == "4":
                 generalize_database(database_path)
             elif option == "5":
-                database_path = _list_databases_and_read_new_database(use_local_database, databases_folder)
+                database_path, database_path_original = _list_databases_and_read_new_database(use_local_database, databases_folder)
                 perturb_database(database_path)
             elif option == "6":
                 kanonymization(database_path=database_path, use_local_database=use_local_database)
             elif option == "7":
-                database_path = _list_databases_and_read_new_database(use_local_database, databases_folder)
+                database_path, database_path_original = _list_databases_and_read_new_database(use_local_database, databases_folder)
             elif option == "8":
                 app.run()
             elif option == "9" or option == "exit":

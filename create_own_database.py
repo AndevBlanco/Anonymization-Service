@@ -1,5 +1,6 @@
 import os
 import csv
+import shutil
 from faker import Faker
 import random
 from termcolor import colored
@@ -50,6 +51,7 @@ def create_external_database(database_name: str):
     data = data.rename_axis('id').reset_index()
     data['id'] += 1
     data.to_csv(f"{external_databases_folder}/{database_name}", sep=',', index=False)
+    shutil.copyfile(f"{external_databases_folder}/{database_name}", f"{external_databases_folder}/original_{database_name}")
     print(colored(f"External database created with {len(data.columns)} columns: {data.columns}", "green"))
 
 
@@ -82,6 +84,8 @@ def create_local_database(database_name: str):
         # Guardar los datos en un archivo CSV
         writer = csv.writer(f)
         writer.writerows(rows)
+    
+    shutil.copyfile(f"{local_databases_folder}/{database_name}", f"{local_databases_folder}/original_{database_name}")
     print(colored(f"Local database created with {len(columns)} columns: {columns}", "green"))
 
 
