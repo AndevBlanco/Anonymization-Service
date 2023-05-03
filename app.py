@@ -102,6 +102,35 @@ def get_master_key():
             MASTER_KEY = file["master"]
             nonce = file["nonce"]
     return MASTER_KEY, nonce
+
+def _input_identifier_columns(database_path: str, anonymize_data):
+    df = read_database(database_path)
+    # Get remaining identifier columns
+    remaining_identifier_columns = [x for x in local_db_identifiers if x in df.columns]
+    if not remaining_identifier_columns:
+        print(colored("There are no remaining identifiers in the database", "blue"))
+        return None, None, None
+    # Choose the columns to be anonymized
+    if anonymize_data:
+        print(colored("""Choose the identifier columns that should be (de)anonymized. Please input numbers seperated by spaces ("0 2 3"):""", "yellow"))
+        for index, identifier_column in enumerate(remaining_identifier_columns):
+            print(colored(f"{index}. {identifier_column}", "yellow"))
+        identifier_input = input()
+        selected_identifier_column_indices = sorted([int(x) for x in identifier_input.split(" ")])
+    else:
+        # Deanonymize a single pseudonym
+        print(colored("""Choose the identifier column that should be deanonymized. Please input a single number:""", "yellow"))
+        for index, identifier_column in enumerate(remaining_identifier_columns):
+            print(colored(f"{index}. {identifier_column}", "yellow"))
+        identifier_input = input()
+        selected_identifier_column_indices = [int(identifier_input)]
+    unknown_indices = list(set(selected_identifier_column_indices).difference(range(len(remaining_identifier_columns))))
+    if unknown_indices:
+        print(colored("You selected a number outside the range of options. Please try again.", "red"))
+        return None, None, None
+    selected_identifier_columns = [remaining_identifier_columns[x] for x in selected_identifier_column_indices]
+    return df, remaining_identifier_columns, selected_identifier_columns
+
 # This function pseudonym database.
 ## TODO: use columns parameter
 def pseudonym_database(database_path, use_local_database):
@@ -109,17 +138,19 @@ def pseudonym_database(database_path, use_local_database):
         print(colored("For external database, there are no identifiers", "blue"))
         return
     
-    df = read_database(database_path)
-    if "name" not in df.columns:
-        print(colored("Identifiers have already been removed from database", "blue"))
+    df, remaining_identifier_columns, selected_identifier_columns = _input_identifier_columns(database_path, anonymize_data=True)
+    if not remaining_identifier_columns:
         return
-
-    pseudonyms = {}
+    
     print(colored("    >> Pseudonymizing database","green"))
-    df["name"] = df["name"].apply(lambda x : create_pseudonym(x, pseudonyms))
+    pseudonyms = {}
+    for column in selected_identifier_columns:
+        column_pseudonyms = {}
+        df[column] = df[column].apply(lambda x : create_pseudonym(x, column_pseudonyms, column))
+        pseudonyms[column] = column_pseudonyms
+    
     write_database(df, database_path)
     print(colored("    >> Database pseudonymized","green"))
-
     if "pseudonyms" in args and args.pseudonyms == "secure":
         key, nonce = get_master_key()
         cipher = Cipher(algorithm=algorithms.AES256(key), mode=modes.GCM(nonce), backend=default_backend())
@@ -127,6 +158,7 @@ def pseudonym_database(database_path, use_local_database):
         with open(database_path[0:len(database_path)-4]+"_pseudonyms.json", 'wb') as f:
             f.write(encryptor.update(json.dumps(pseudonyms).encode('utf-8')))        
     print(colored("    >> Created pseudonym dictionary file","green"))
+
 
 def reverse_pseudonym_database(database_path, use_local_database):
     if not use_local_database:
@@ -136,29 +168,48 @@ def reverse_pseudonym_database(database_path, use_local_database):
         print(colored(f"There is no dictionary of pseudonyms for local database '{database_path.split('/')[1]}'. Please pseudonymize your database before.",
                       "red"))
         return
-    pseudonym = input(colored("Introduce a pseudonym to translate\n","yellow"))
-    secured_id = get_secured_id_from_pseudonym(database_path, pseudonym)
+    
+    _, remaining_identifier_columns, selected_identifier_columns = _input_identifier_columns(database_path, anonymize_data=False)
+    if not remaining_identifier_columns:
+        return
+    
+    id_column = selected_identifier_columns[0]
+
+    pseudonym = input(colored(f"You selected column {id_column}. Introduce a pseudonym to translate:\n","yellow"))
+    secured_id = get_secured_id_from_pseudonym(database_path, pseudonym, id_column)
     if secured_id:
         print(colored(f"The ID associated with pseudonym {pseudonym} is: {secured_id}","blue"))
     else:
         print(colored(f"There is no ID associated with pseudonym {pseudonym}.","red"))
 
 # Generar un pseudónimo para un nombre
-def create_pseudonym(name,pseudonyms):
-    pseudonym = fake.first_name()
-    while pseudonym ==name or  pseudonym[0] != name[0]:
-        pseudonym = fake.first_name()
-    pseudonyms[pseudonym] = name
+def create_pseudonym(to_be_pseudonymized_data, pseudonyms, column_name):
+    if column_name == "name":
+        pseudonym = fake.unique.first_name()
+    elif column_name == "email":
+        pseudonym = fake.unique.email()
+    elif column_name == "Mobile phone number":
+        pseudonym = fake.unique.phone_number()
+    elif column_name == "email":
+        pseudonym = fake.unique.email()
+    elif column_name == "national identifier":
+        pseudonym = fake.unique.ssn()
+    elif column_name == "security identifier":
+        pseudonym = fake.unique.uuid4()
+    else:
+        raise ValueError(f"column name '{column_name}' is not viable here.")
+
+    pseudonyms[pseudonym] = to_be_pseudonymized_data
     return pseudonym
 
-def get_secured_id_from_pseudonym(database_path, pseudonym):
+def get_secured_id_from_pseudonym(database_path, pseudonym, id_column):
     key, nonce = get_master_key()
     cipher = Cipher(algorithm=algorithms.AES256(key), mode=modes.GCM(nonce), backend=default_backend())
     decryptor = cipher.decryptor()
     with open(database_path[0:len(database_path)-4]+"_pseudonyms.json", 'rb') as f:
         decrypted = decryptor.update(f.read()).decode('utf-8')   
         pseudonyms = json.loads(decrypted)
-    return pseudonyms.get(pseudonym)
+    return pseudonyms.get(id_column).get(pseudonym)
 
 @app.route('/')
 def index():
