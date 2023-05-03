@@ -21,7 +21,7 @@ def create_external_database(database_name: str):
     data = pd.read_csv(external_database, sep=" ", names=column_names)
     
     relevant_numerical_columns = ["duration", "amount", "age"]
-    relevant_categorical_columns = ["purpose", "credit_history", "housing"]
+    relevant_categorical_columns = ["purpose", "credit_history"]
     relevant_columns = relevant_numerical_columns + relevant_categorical_columns
     data = data[relevant_columns]
 
@@ -34,7 +34,6 @@ def create_external_database(database_name: str):
         "A44" : "domestic appliances",
         "A45" : "repairs",
         "A46" : "education",
-        "A47" : "(vacation - does not exist?)",
         "A48" : "retraining",
         "A49" : "business",
         "A410" : "others",
@@ -43,11 +42,7 @@ def create_external_database(database_name: str):
         "A31" : "all credits at this bank paid back duly",
         "A32" : "existing credits paid back duly till now",
         "A33" : "delay in paying off in the past",
-        "A34" : "critical account/ other credits existing (not at this bank)",
-        # housing
-        "A151" : "rent",
-        "A152" : "own",
-        "A153" : "for free"
+        "A34" : "critical account/ other credits existing (not at this bank)"
     }
     for col in relevant_categorical_columns:
         data[col] = data[col].map(value_mapping).fillna(data[col])
