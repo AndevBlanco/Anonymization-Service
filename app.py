@@ -3,7 +3,7 @@ import numpy as np
 import csv, json, os, bson, random
 from pandas.api.types import is_numeric_dtype, is_integer_dtype, is_float_dtype
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from argparse import ArgumentParser
 from faker import Faker
 import csv, json, os, bson
@@ -17,6 +17,7 @@ from kanonymity import generalize, suppress, is_k_anonymous
 load_dotenv()
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 parser = ArgumentParser()
 parser.add_argument('-d', '--database', choices=['local', 'external'], help='Define if you want to use the local or external database')
@@ -244,23 +245,50 @@ def kanonymization(database_path:str, use_local_database:bool):
 
         # pd.set_option('display.max_columns', None)
         pd.set_option('display.max_rows', None)
-        print(anon_data)
-        anon_data.to_csv("database_kanomymized.csv", index=False)
+        # print(anon_data)
+        anon_data.to_csv(f"{database_path}_kanomymized.csv", index=False)
 
     else:
-        print(colored("For external database, there are no k anonymity", "blue"))
+        print(colored("For external database, there is no k anonymity", "blue"))
 
 @app.route('/')
 def index():
     files = []
+    local_files = []
     if os.path.isdir('./local-databases'):
-        files = [f for f in os.listdir('./local-databases') if not f.startswith('original_')]
+        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if not f.endswith('_original')]
+        local_files = [f for f in os.listdir('./local-databases') if not f.endswith('_original')]
+
     if os.path.isdir('./external-databases'):
-        files += [f for f in os.listdir('./external-databases') if not f.startswith('original_')]
+        files += [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if not f.endswith('_original')]
+        external_files = [f for f in os.listdir('./external-databases') if not f.endswith('_original')]
+
+    print(files)
+
+    name_database = request.args.get('path')
+    print(name_database)
+    table = pd.DataFrame()
+    table_original = pd.DataFrame()
+    if name_database != None:
+        name_database_splitted = name_database.split('/')
+        for i in files:
+            if name_database == i['path'] and name_database_splitted[-1] in os.listdir("./" + name_database_splitted[1]):
+                table = pd.read_csv(f'{name_database}')
+                table_original = pd.read_csv(f'{name_database}_original')
+    else:
+        table = pd.read_csv(f'{files[0]["path"]}')
+        table_original = pd.read_csv(f'{files[0]["path"]}_original')
     
-    df = pd.read_csv('./original_database.csv')
-    html_table = df.to_html(classes="table table-striped")
-    return render_template('index.html', table=html_table, files=files)
+    html_table = table.to_html(classes="table table-striped")
+    html_table_original = table_original.to_html(classes="table table-striped")
+    return render_template('index.html', table=html_table, table_original=html_table_original, files=files)
+
+
+@app.route('/pseudonymized')
+def pseudonymized():
+    data = pd.read_csv('./local-databases/new')
+    counts = data.groupby('NAME').size()
+    return render_template('pseudonymized.html')
 
 
 def perturb_database(database_path:str):
@@ -330,7 +358,7 @@ def _list_databases_and_read_new_database(use_local_database, databases_folder):
         list_current_databases(use_local_database, databases_folder)
         database_name = input(colored("Introduce a database to be anonymized\n", color="yellow"))
         database_path = f"{databases_folder}/{database_name}"
-        database_path_original = f"{databases_folder}/original_{database_name}"
+        database_path_original = f"{databases_folder}/{database_name}_original"
         if os.path.isfile(database_path):
             database_selected = True
         else:
@@ -384,7 +412,7 @@ def main():
             elif option == "7":
                 database_path, database_path_original = _list_databases_and_read_new_database(use_local_database, databases_folder)
             elif option == "8":
-                app.run()
+                app.run(debug=True)
             elif option == "9" or option == "exit":
                 print(colored("Leaving the app. See you soon :)","magenta"))
                 break
@@ -392,7 +420,7 @@ def main():
                 print(colored("Invalid option","red"))
             print(colored('*'*100, "blue"))
     else:
-        app.run()
+        app.run(debug=True)
 
 if __name__ == '__main__':
     main()

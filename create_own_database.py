@@ -51,7 +51,7 @@ def create_external_database(database_name: str):
     data = data.rename_axis('id').reset_index()
     data['id'] += 1
     data.to_csv(f"{external_databases_folder}/{database_name}", sep=',', index=False)
-    shutil.copyfile(f"{external_databases_folder}/{database_name}", f"{external_databases_folder}/original_{database_name}")
+    shutil.copyfile(f"{external_databases_folder}/{database_name}", f"{external_databases_folder}/{database_name}_original")
     print(colored(f"External database created with {len(data.columns)} columns: {data.columns}", "green"))
 
 
@@ -85,7 +85,7 @@ def create_local_database(database_name: str):
         writer = csv.writer(f)
         writer.writerows(rows)
     
-    shutil.copyfile(f"{local_databases_folder}/{database_name}", f"{local_databases_folder}/original_{database_name}")
+    shutil.copyfile(f"{local_databases_folder}/{database_name}", f"{local_databases_folder}/{database_name}_original")
     print(colored(f"Local database created with {len(columns)} columns: {columns}", "green"))
 
 

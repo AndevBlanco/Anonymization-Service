@@ -6,33 +6,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymization</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </head>
 <body style="background-color: #c3dbf3;">
-    <div class="row justify-content-center">
-        <div class="col-10">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light py-3">
+        <a class="navbar-brand px-3" href="#">Anonimyzation</a>
+      
+        <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
+          <ul class="navbar-nav">
+            <li class="nav-item active">
+              <a class="nav-link" href="#">Tables</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/pseudonymized">Pseudonymized</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Disabled</a>
+            </li>
+          </ul>
+          <form class="form-inline my-2 my-lg-0 px-3">
+            <select class="form-select w-100" id="database" aria-label="Select database">
+                {% for file in files %}
+                    {% if request.args.get('path') == file.path %}
+                        <option value="{{ file.path }}" selected>{{ file.name }}</option>
+                    {% else %}
+                        <option value="{{ file.path }}">{{ file.name }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+          </form>
+        </div>
+    </nav>
+    <div class="row justify-content-center mx-2">
+        <div class="col-6">
+            <div class="card my-5 ml-2 shadow-lg bg-white rounded">
+                <h3 class="card-header">Original</h3>
+                <div class="card-body" style="overflow-x: scroll!important;">
+                    {{ table_original | safe }}
+                </div>
+            </div>
+        </div>
+        <div class="col-6">
             <div class="card my-5 shadow-lg bg-white rounded">
-                <h2 class="card-header">Anonimyzation</h2>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-auto">
-                            <label for="database">Select database</label>
-                        </div>
-                        <div class="col-4">
-                            <select class="form-select w-50" id="database" aria-label="Select database">
-                                {% for file in files %}
-                                  <option value="{{ file }}">{{ file }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <h4>Tabla de datos</h4>
+                <h3 class="card-header">Modified</h3>
+                <div class="card-body" style="overflow-x: scroll!important;">
                     {{ table | safe }}
                 </div>
             </div>
         </div>
-    </div> 
+    </div>
     
     <!-- <div class="row justify-content-center">
         <div class="col-auto">
@@ -68,5 +89,14 @@
         </div>
     </div>
      -->
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        $('#database').change(() => {
+            let current_href = window.location.href.split("?")[0];
+            window.location.href = current_href + '?path=' + $('#database').val();
+        });
+    </script>
 </body>
 </html>
