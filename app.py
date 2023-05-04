@@ -145,11 +145,18 @@ def pseudonym_database(database_path, use_local_database):
     if not remaining_identifier_columns:
         return
     
+    pseudonymize_method = input(colored("""Type in the method to pseudonymize the data:
+        1. Hash function
+        2. Document-randomized pseudonymisation\n""", "yellow"))
+    if pseudonymize_method != '1' and pseudonymize_method != '2':
+        print(colored("Please select one of the pseudonymization method options", "red"))
+        return
+    
     print(colored("    >> Pseudonymizing database","green"))
     pseudonyms = {}
     for column in selected_identifier_columns:
         column_pseudonyms = {}
-        df[column] = df[column].apply(lambda x : create_pseudonym(x, column_pseudonyms, column))
+        df[column] = df[column].apply(lambda x : create_pseudonym(x, column_pseudonyms, column, pseudonymize_method))
         pseudonyms[column] = column_pseudonyms
     
     write_database(df, database_path)
@@ -186,21 +193,28 @@ def reverse_pseudonym_database(database_path, use_local_database):
         print(colored(f"There is no ID associated with pseudonym {pseudonym}.","red"))
 
 # Generar un pseudónimo para un nombre
-def create_pseudonym(to_be_pseudonymized_data, pseudonyms, column_name):
-    if column_name == "name":
-        pseudonym = fake.unique.first_name()
-    elif column_name == "email":
-        pseudonym = fake.unique.email()
-    elif column_name == "Mobile phone number":
-        pseudonym = fake.unique.phone_number()
-    elif column_name == "email":
-        pseudonym = fake.unique.email()
-    elif column_name == "national identifier":
-        pseudonym = fake.unique.ssn()
-    elif column_name == "security identifier":
-        pseudonym = fake.unique.uuid4()
+def create_pseudonym(to_be_pseudonymized_data, pseudonyms, column_name, pseudonymize_method):
+    if pseudonymize_method == '1':
+        # hash
+        pseudonym = hash(to_be_pseudonymized_data)
+    elif pseudonymize_method == '2':
+        # document randomized
+        if column_name == "name":
+            pseudonym = fake.unique.first_name()
+        elif column_name == "email":
+            pseudonym = fake.unique.email()
+        elif column_name == "Mobile phone number":
+            pseudonym = fake.unique.phone_number()
+        elif column_name == "email":
+            pseudonym = fake.unique.email()
+        elif column_name == "national identifier":
+            pseudonym = fake.unique.ssn()
+        elif column_name == "security identifier":
+            pseudonym = fake.unique.uuid4()
+        else:
+            raise ValueError(f"column name '{column_name}' is not viable here.")
     else:
-        raise ValueError(f"column name '{column_name}' is not viable here.")
+        raise ValueError(f"Unknown pseudonymization method '{pseudonymize_method}'")
 
     pseudonyms[pseudonym] = to_be_pseudonymized_data
     return pseudonym
