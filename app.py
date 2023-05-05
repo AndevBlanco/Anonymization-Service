@@ -13,6 +13,8 @@ from cryptography.hazmat.backends import default_backend
 from termcolor import colored
 import create_own_database
 from kanonymity import generalize, suppress, is_k_anonymous
+import numpy as np
+import re
 
 load_dotenv()
 
@@ -33,6 +35,96 @@ fake = Faker()
 master_key = None
 
 local_db_identifiers = ["name", "email", "Mobile phone number", "national identifier", "security identifier"]
+
+@app.route('/')
+def index():
+    print("hola")
+    files = []
+    local_files = []
+    if os.path.isdir('./local-databases'):
+        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if not f.endswith('_original')]
+        local_files = [f for f in os.listdir('./local-databases') if not f.endswith('_original')]
+
+    if os.path.isdir('./external-databases'):
+        files += [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if not f.endswith('_original')]
+        external_files = [f for f in os.listdir('./external-databases') if not f.endswith('_original')]
+
+    name_database = request.args.get('path')
+    table = pd.DataFrame()
+    table_original = pd.DataFrame()
+    if name_database != None:
+        name_database_splitted = name_database.split('/')
+        for i in files:
+            if name_database == i['path'] and name_database_splitted[-1] in os.listdir("./" + name_database_splitted[1]):
+                table = pd.read_csv(f'{name_database}')
+                table_original = pd.read_csv(f'{name_database}_original')
+    else:
+        table = pd.read_csv(f'{files[0]["path"]}')
+        table_original = pd.read_csv(f'{files[0]["path"]}_original')
+    
+    html_table = table.to_html(classes="table table-striped")
+    html_table_original = table_original.to_html(classes="table table-striped")
+    return render_template('index.html', table=html_table, table_original=html_table_original, files=files)
+
+regex = re.compile(r'\[(\d+)-(\d+)\]')
+def age_range_to_int(age_range):
+    match = regex.match(age_range)
+    if match:
+        start = int(match.group(1))
+        end = int(match.group(2))
+        return (start + end) // 2
+    else:
+        return None
+
+@app.route('/charts')
+def charts():
+    path = request.args.get('path')
+    database = pd.read_csv(path)
+    charts = []
+    sex_count = pd.DataFrame()
+    if 'gender' in database.columns:
+        sex_count = database['gender'].value_counts()
+        charts.append('gender')
+    elif 'genero' in database.columns:
+        sex_count = database['genero'].value_counts()
+        charts.append('genero')
+    elif 'sex' in database.columns:
+        sex_count = database['sex'].value_counts()
+        charts.append('sex')
+    elif 'sexo' in database.columns:
+        sex_count = database['sexo'].value_counts()
+        charts.append('sexo')
+
+    ages = []
+    ages_data = ""
+    ages_type = ""
+    if 'age' in database.columns:
+        ages = database['age']
+        ages_type = database['age'].dtype
+    elif 'edad' in database.columns:
+        ages = database['edad']
+        ages_type = database['edad'].dtype
+
+    if len(ages) > 0:
+        if ages_type == 'int':
+            print("holaadafds")
+            values, bins = np.histogram(ages, bins=10)
+            labels = []
+            for i in range(len(bins) - 1):
+                labels.append(str(int(bins[i])) + "-" + str(int(bins[i+1])))
+
+            ages_data = {
+                "labels": labels,
+                "values": values.tolist()
+            }
+
+    gender_data = {
+        'labels': sex_count.index.tolist(),
+        'values': sex_count.values.tolist()
+    }
+
+    return render_template('charts.html', gender_data=gender_data, ages_data=ages_data)
+
 
 def read_database(database_path):
     print(colored("    >> Reading database","green"))
@@ -264,45 +356,6 @@ def kanonymization(database_path:str, use_local_database:bool):
 
     else:
         print(colored("For external database, there is no k anonymity", "blue"))
-
-@app.route('/')
-def index():
-    files = []
-    local_files = []
-    if os.path.isdir('./local-databases'):
-        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if not f.endswith('_original')]
-        local_files = [f for f in os.listdir('./local-databases') if not f.endswith('_original')]
-
-    if os.path.isdir('./external-databases'):
-        files += [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if not f.endswith('_original')]
-        external_files = [f for f in os.listdir('./external-databases') if not f.endswith('_original')]
-
-    print(files)
-
-    name_database = request.args.get('path')
-    print(name_database)
-    table = pd.DataFrame()
-    table_original = pd.DataFrame()
-    if name_database != None:
-        name_database_splitted = name_database.split('/')
-        for i in files:
-            if name_database == i['path'] and name_database_splitted[-1] in os.listdir("./" + name_database_splitted[1]):
-                table = pd.read_csv(f'{name_database}')
-                table_original = pd.read_csv(f'{name_database}_original')
-    else:
-        table = pd.read_csv(f'{files[0]["path"]}')
-        table_original = pd.read_csv(f'{files[0]["path"]}_original')
-    
-    html_table = table.to_html(classes="table table-striped")
-    html_table_original = table_original.to_html(classes="table table-striped")
-    return render_template('index.html', table=html_table, table_original=html_table_original, files=files)
-
-
-@app.route('/pseudonymized')
-def pseudonymized():
-    data = pd.read_csv('./local-databases/new')
-    counts = data.groupby('NAME').size()
-    return render_template('pseudonymized.html')
 
 
 def perturb_database(database_path:str):
