@@ -15,6 +15,8 @@ import create_own_database
 from kanonymity import generalize, suppress, is_k_anonymous
 import numpy as np
 import re
+import pycountry
+import pycountry_convert as pc
 
 load_dotenv()
 
@@ -35,6 +37,9 @@ fake = Faker()
 master_key = None
 
 local_db_identifiers = ["name", "email", "Mobile phone number", "national identifier", "security identifier"]
+
+with open('job_generalizations.txt', 'r') as jobs:
+    generalizations = json.load(jobs)
 
 @app.route('/')
 def index():
@@ -152,9 +157,9 @@ def generalize_database(database_path):
             range_size = int(input(colored(f"Introduce the range size for the numerical generalization of the column {df[column].name}. If this column should no be set as an interval, type 0: ","yellow")))
             df[column] = df[column].apply(lambda x : generalize_numeric_data(x, range_size))
         else:
-            # TODO: implement
-            # df[column] = df[column].apply(lambda x : generalize_categorical_data(x))
-            pass
+            type = input(colored(f"Introduce the type of categorical data of the column {df[column].name}. Possibles categories: job, civil_status or country. If the column does not match them, introduce something else: ", "yellow"))
+            if type in ["job", "civil_status", "civil status", "country"]:
+                df[column] = df[column].apply(lambda x : generalize_categorical_data(x, type))
     write_database(df, database_path)
     print(colored("    >> Database generalized","green"))
 
@@ -178,12 +183,44 @@ def generalize_numeric_data(number, range_size):
         lower_bound = (number // range_size) * range_size
         upper_bound = lower_bound + range_size
         return f"[{lower_bound}-{upper_bound}]"
+    
+
+def generalize_categorical_data(value, column_type):
+    if column_type =="job":
+        return generalize_job_title(value)
+    elif column_type == "civil_status" or column_type == "civil status":
+        return generalize_civil_status(value)
+    elif column_type == "country":
+        return get_continent(value)
 
 
-def generalize_categorical_data(value):
-    # TODO: implement
-    pass
+def generalize_job_title(job_title):
+    # Find matching generalization
+    for category, titles in generalizations.items():
+        for title in titles:
+            if title in job_title.lower():
+                return category
+    # If no match found, return original job title
+    return job_title
 
+def generalize_civil_status(status):
+    if status.lower() in ["single", "divorced"]:
+        return "Single/Divorced"
+    elif status.lower() in ["married", "widowed"]:
+        return "Married/Widowed"
+    else:
+        return "Unknown"
+    
+def get_continent(country_name):
+    try:
+        country_alpha2 = pc.country_name_to_country_alpha2(country_name)
+        country_continent_code = pc.country_alpha2_to_continent_code(
+            country_alpha2)
+        country_continent_name = pc.convert_continent_code_to_continent_name(
+            country_continent_code)
+        return country_continent_name
+    except:
+        return 'Unknown country'
 
 # Get master key to decrypt or encrypt pseudonyms file
 def get_master_key():
@@ -212,7 +249,7 @@ def _input_identifier_columns(database_path: str, anonymize_data):
         print(colored("""Choose the identifier columns that should be (de)anonymized. Please input numbers seperated by spaces ("0 2 3"):""", "yellow"))
         for index, identifier_column in enumerate(remaining_identifier_columns):
             print(colored(f"{index}. {identifier_column}", "yellow"))
-        identifier_input = input()
+        identifier_input = input().strip()
         selected_identifier_column_indices = sorted([int(x) for x in identifier_input.split(" ")])
     else:
         # Deanonymize a single pseudonym
