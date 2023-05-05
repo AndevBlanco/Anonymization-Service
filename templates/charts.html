@@ -12,48 +12,59 @@
         <a class="navbar-brand px-3" href="/">Anonimyzation</a>
       
         <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
-          <ul class="navbar-nav">
+          <ul class="navbar-nav px-3">
             <li class="nav-item active">
-              <a class="nav-link" href="/">Tables</a>
+              <a class="nav-link" href="/">Databases</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/chart">Charts</a>
+              <a id="charts-link" class="nav-link" href="#">Charts</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#">Disabled</a>
+              <a class="nav-link" href="#">About</a>
             </li>
           </ul>
-          <form class="form-inline my-2 my-lg-0 px-3">
-            <select class="form-select w-100" id="database" aria-label="Select database">
-                {% for chart in charts %}
-                    <option value="{{ chart }}">{{ chart }}</option>  
-                {% endfor %}
-            </select>
-          </form>
         </div>
     </nav>
     <div class="row justify-content-center mx-2">
-      <div class="col-11">
+      <div class="col-6">
         <div class="card my-5 ml-2 shadow-lg bg-white rounded">
-            <h3 class="card-header">Original</h3>
-            <canvas id="genderChart"></canvas>
+            <h3 class="card-header">Sex Distribution</h3>
+            <p id="sex_not_found" class="font-italic p-3" style="display: none;">Column not found in database!</p>
+            <div id="sex" style="display: none;">
+              <canvas id="genderChart"></canvas>
+            </div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card my-5 ml-2 shadow-lg bg-white rounded">
+            <h3 class="card-header">Age Histogram</h3>
+            <p id="age_not_found" class="font-italic p-3" style="display: none;">Column not found in database!</p>
+            <div id="age" style="display: none;">
+              <canvas id="ageChart"></canvas>
+            </div>
         </div>
       </div>
 
     </div>
     <input type="hidden" id="gender-data" value="{{ gender_data }}">
+    <input type="hidden" id="age-data" value="{{ ages_data }}">
+    <input type="hidden" id="database" value="{{ request.args.get('path') }}">
     <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        console.log(typeof($('#gender-data').val()));
-        console.log(document.getElementById('gender-data').value);
-        cadena = $('#gender-data').val().replace(/'/g, '"'); // reemplaza las comillas simples con dobles
-        cadena = cadena.replace(/(\w+):/g, '"$1":'); // rodea las claves con comillas dobles
-        var genderData = JSON.parse(cadena);
-        console.log("Datos: ", genderData);
-        console.log("Datos: ", typeof(genderData));
+      $('#charts-link').on('click', function() {
+        $(this).attr('href', '/charts?path=' + $('#database').val());
+      });
+
+      genders = $('#gender-data').val().replace(/'/g, '"'); // reemplaza las comillas simples con dobles
+      genders = genders.replace(/(\w+):/g, '"$1":'); // rodea las claves con comillas dobles
+      console.log(genders);
+      if(genders){
+        var genderData = JSON.parse(genders);
+        $('#sex_not_found').hide();
+        $('#sex').show();
         var ctx = document.getElementById('genderChart').getContext('2d');
         var chart = new Chart(ctx, {
             type: 'bar',
@@ -72,6 +83,40 @@
                 }
             }
         });
+      }else{
+        $('#sex_not_found').show();
+        $('#sex').hide();
+      }
+      ages = $('#age-data').val().replace(/'/g, '"'); // reemplaza las comillas simples con dobles
+      ages = ages.replace(/(\w+):/g, '"$1":'); // rodea las claves con comillas dobles
+      console.log(ages);
+      if(ages){
+        var ageData = JSON.parse(ages);
+        $('#age_not_found').hide();
+        $('#age').show();
+        var ctx = document.getElementById('ageChart').getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ageData.labels,
+                datasets: [{
+                    label: 'Género',
+                    data: ageData.values,
+                    backgroundColor: ['#3e95cd', '#8e5ea2']
+                }]
+            },
+            options: {
+                title: {
+                    display: true,
+                    text: 'Distribución de género'
+                }
+            }
+        });
+      }else{
+        $('#age_not_found').show();
+        $('#age').hide();
+      }
+      
       </script>
       
 </body>

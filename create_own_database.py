@@ -63,7 +63,7 @@ def create_local_database(database_name: str):
     print(colored("Creating own database", "green"))
     with open(f"{local_databases_folder}/{database_name}", 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        columns = ['id', 'name', 'job','Gender', 'Age', 'email', 'password', 'Mobile phone number', 'zipcode', 'national identifier', 'security identifier']
+        columns = ['id', 'name', 'job','gender', 'age', 'email', 'password', 'mobile phone number', 'zipcode', 'national identifier', 'security identifier']
         writer.writerow(columns)
         fake = Faker()
         for i in range(1, dataset_length):
