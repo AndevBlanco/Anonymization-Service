@@ -126,6 +126,7 @@ def charts():
     return render_template('charts.html', gender_data=gender_data, ages_data=ages_data)
 
 
+
 def read_database(database_path):
     print(colored("    >> Reading database","green"))
     df = pd.read_csv(database_path, sep=",")
