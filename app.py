@@ -280,7 +280,6 @@ def index():
     print(files)
 
     name_database = request.args.get('path')
-    print(name_database)
     table = pd.DataFrame()
     table_original = pd.DataFrame()
     if name_database != None:
@@ -298,11 +297,33 @@ def index():
     return render_template('index.html', table=html_table, table_original=html_table_original, files=files)
 
 
-@app.route('/pseudonymized')
+@app.route('/charts')
 def pseudonymized():
-    data = pd.read_csv('./local-databases/new')
-    counts = data.groupby('NAME').size()
-    return render_template('pseudonymized.html')
+    path = request.args.get('path')
+    database = pd.read_csv(path)
+    charts = []
+    sex_count = pd.DataFrame()
+    if 'gender' in database.columns:
+        sex_count = database['gender'].value_counts()
+        charts.append('gender')
+    elif 'genero' in database.columns:
+        sex_count = database['genero'].value_counts()
+        charts.append('genero')
+    elif 'sex' in database.columns:
+        sex_count = database['sex'].value_counts()
+        charts.append('sex')
+    elif 'sexo' in database.columns:
+        sex_count = database['sexo'].value_counts()
+        charts.append('sexo')
+
+    gender_data = {
+        'labels': sex_count.index.tolist(),
+        'values': sex_count.values.tolist()
+    }
+    print(sex_count)
+
+    # counts = database.groupby('NAME').size()
+    return render_template('charts.html', charts=charts, gender_data=gender_data)
 
 
 def perturb_database(database_path:str):

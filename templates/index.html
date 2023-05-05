@@ -17,10 +17,10 @@
               <a class="nav-link" href="#">Tables</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/pseudonymized">Pseudonymized</a>
+                <a id="charts-link" class="nav-link" href="#">Charts</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#">Disabled</a>
+              <a class="nav-link" href="#">About</a>
             </li>
           </ul>
           <form class="form-inline my-2 my-lg-0 px-3">
@@ -54,49 +54,20 @@
             </div>
         </div>
     </div>
-    
-    <!-- <div class="row justify-content-center">
-        <div class="col-auto">
-            <h4>Anonimyzation</h4>
-        </div>
-        <div class="col-10">
-            <div class="row">
-                <div class="col-6">
-                    <table class="table table-striped">
-                        <thead>
-                            <th>Name</th>
-                            <th>Property</th>
-                        </thead>
-                        <tbody>
-                            <td>Robert</td>
-                            <td>Cool</td>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="col-6">
-                    <table>
-                        <thead>
-                            <th>Name</th>
-                            <th>Property</th>
-                        </thead>
-                        <tbody>
-                            <td>Robert</td>
-                            <td>Cool</td>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-     -->
     <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     <script>
         $('#database').change(() => {
-            let current_href = window.location.href.split("?")[0];
-            window.location.href = current_href + '?path=' + $('#database').val();
+            // let current_href = window.location.href.split("?")[0];
+            window.location.href = '/' + '?path=' + $('#database').val();
         });
+        // cuando se hace clic en el enlace Charts
+        $('#charts-link').on('click', function() {
+            // establecer el atributo href del enlace con los parámetros deseados
+            $(this).attr('href', '/charts?path=' + $('#database').val());
+        });
+
     </script>
 </body>
 </html>

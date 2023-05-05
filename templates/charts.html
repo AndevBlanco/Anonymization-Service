@@ -17,7 +17,7 @@
               <a class="nav-link" href="/">Tables</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/pseudonymized">Pseudonymized</a>
+              <a class="nav-link" href="/chart">Charts</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#">Disabled</a>
@@ -25,60 +25,50 @@
           </ul>
           <form class="form-inline my-2 my-lg-0 px-3">
             <select class="form-select w-100" id="database" aria-label="Select database">
-                {% for file in files %}
-                    {% if request.args.get('path') == file.path %}
-                        <option value="{{ file.path }}" selected>{{ file.name }}</option>
-                    {% else %}
-                        <option value="{{ file.path }}">{{ file.name }}</option>
-                    {% endif %}
+                {% for chart in charts %}
+                    <option value="{{ chart }}">{{ chart }}</option>  
                 {% endfor %}
             </select>
           </form>
         </div>
     </nav>
     <div class="row justify-content-center mx-2">
-        <canvas id="myChart" width="400" height="400"></canvas>
+      <div class="col-11">
+        <div class="card my-5 ml-2 shadow-lg bg-white rounded">
+            <h3 class="card-header">Original</h3>
+            <canvas id="genderChart"></canvas>
+        </div>
+      </div>
 
     </div>
+    <input type="hidden" id="gender-data" value="{{ gender_data }}">
     <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        var ctx = document.getElementById('myChart').getContext('2d');
-        var myChart = new Chart(ctx, {
+        console.log(typeof($('#gender-data').val()));
+        console.log(document.getElementById('gender-data').value);
+        cadena = $('#gender-data').val().replace(/'/g, '"'); // reemplaza las comillas simples con dobles
+        cadena = cadena.replace(/(\w+):/g, '"$1":'); // rodea las claves con comillas dobles
+        var genderData = JSON.parse(cadena);
+        console.log("Datos: ", genderData);
+        console.log("Datos: ", typeof(genderData));
+        var ctx = document.getElementById('genderChart').getContext('2d');
+        var chart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio'],
+                labels: genderData.labels,
                 datasets: [{
-                    label: 'Ventas',
-                    data: [12, 19, 3, 5, 2, 3],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.2)',
-                        'rgba(54, 162, 235, 0.2)',
-                        'rgba(255, 206, 86, 0.2)',
-                        'rgba(75, 192, 192, 0.2)',
-                        'rgba(153, 102, 255, 0.2)',
-                        'rgba(255, 159, 64, 0.2)'
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(153, 102, 255, 1)',
-                        'rgba(255, 159, 64, 1)'
-                    ],
-                    borderWidth: 1
+                    label: 'Género',
+                    data: genderData.values,
+                    backgroundColor: ['#3e95cd', '#8e5ea2']
                 }]
             },
             options: {
-                scales: {
-                    yAxes: [{
-                        ticks: {
-                            beginAtZero: true
-                        }
-                    }]
+                title: {
+                    display: true,
+                    text: 'Distribución de género'
                 }
             }
         });
