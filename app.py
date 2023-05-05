@@ -13,8 +13,6 @@ from cryptography.hazmat.backends import default_backend
 from termcolor import colored
 import create_own_database
 from kanonymity import generalize, suppress, is_k_anonymous
-import numpy as np
-import re
 
 load_dotenv()
 
@@ -35,96 +33,6 @@ fake = Faker()
 master_key = None
 
 local_db_identifiers = ["name", "email", "Mobile phone number", "national identifier", "security identifier"]
-
-@app.route('/')
-def index():
-    print("hola")
-    files = []
-    local_files = []
-    if os.path.isdir('./local-databases'):
-        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if not f.endswith('_original')]
-        local_files = [f for f in os.listdir('./local-databases') if not f.endswith('_original')]
-
-    if os.path.isdir('./external-databases'):
-        files += [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if not f.endswith('_original')]
-        external_files = [f for f in os.listdir('./external-databases') if not f.endswith('_original')]
-
-    name_database = request.args.get('path')
-    table = pd.DataFrame()
-    table_original = pd.DataFrame()
-    if name_database != None:
-        name_database_splitted = name_database.split('/')
-        for i in files:
-            if name_database == i['path'] and name_database_splitted[-1] in os.listdir("./" + name_database_splitted[1]):
-                table = pd.read_csv(f'{name_database}')
-                table_original = pd.read_csv(f'{name_database}_original')
-    else:
-        table = pd.read_csv(f'{files[0]["path"]}')
-        table_original = pd.read_csv(f'{files[0]["path"]}_original')
-    
-    html_table = table.to_html(classes="table table-striped")
-    html_table_original = table_original.to_html(classes="table table-striped")
-    return render_template('index.html', table=html_table, table_original=html_table_original, files=files)
-
-regex = re.compile(r'\[(\d+)-(\d+)\]')
-def age_range_to_int(age_range):
-    match = regex.match(age_range)
-    if match:
-        start = int(match.group(1))
-        end = int(match.group(2))
-        return (start + end) // 2
-    else:
-        return None
-
-@app.route('/charts')
-def charts():
-    path = request.args.get('path')
-    database = pd.read_csv(path)
-    charts = []
-    sex_count = pd.DataFrame()
-    if 'gender' in database.columns:
-        sex_count = database['gender'].value_counts()
-        charts.append('gender')
-    elif 'genero' in database.columns:
-        sex_count = database['genero'].value_counts()
-        charts.append('genero')
-    elif 'sex' in database.columns:
-        sex_count = database['sex'].value_counts()
-        charts.append('sex')
-    elif 'sexo' in database.columns:
-        sex_count = database['sexo'].value_counts()
-        charts.append('sexo')
-
-    ages = []
-    ages_data = ""
-    ages_type = ""
-    if 'age' in database.columns:
-        ages = database['age']
-        ages_type = database['age'].dtype
-    elif 'edad' in database.columns:
-        ages = database['edad']
-        ages_type = database['edad'].dtype
-
-    if len(ages) > 0:
-        if ages_type == 'int':
-            print("holaadafds")
-            values, bins = np.histogram(ages, bins=10)
-            labels = []
-            for i in range(len(bins) - 1):
-                labels.append(str(int(bins[i])) + "-" + str(int(bins[i+1])))
-
-            ages_data = {
-                "labels": labels,
-                "values": values.tolist()
-            }
-
-    gender_data = {
-        'labels': sex_count.index.tolist(),
-        'values': sex_count.values.tolist()
-    }
-
-    return render_template('charts.html', gender_data=gender_data, ages_data=ages_data)
-
 
 def read_database(database_path):
     print(colored("    >> Reading database","green"))
@@ -149,7 +57,8 @@ def generalize_database(database_path):
     df = read_database(database_path)
     for column in df.columns[1:]:
         if is_integer_dtype(df[column]):
-            df[column] = df[column].apply(lambda x : generalize_numeric_data(x))
+            range_size = int(input(colored(f"Introduce the range size for the numerical generalization of the column {df[column].name}. If this column should no be set as an interval, type 0: ","yellow")))
+            df[column] = df[column].apply(lambda x : generalize_numeric_data(x, range_size))
         else:
             # TODO: implement
             # df[column] = df[column].apply(lambda x : generalize_categorical_data(x))
@@ -158,9 +67,9 @@ def generalize_database(database_path):
     print(colored("    >> Database generalized","green"))
 
 
-def generalize_numeric_data(number):
-    number_str = str(number)
-    if len(number_str) >= 5:
+def generalize_numeric_data(number, range_size):
+    if range_size == 0:
+        number_str = str(number)
         num_digits = len(number_str)
         generalize_count = num_digits // 2 if num_digits % 2 == 0 else (num_digits // 2) + 1
         generalize_indices = range(num_digits - generalize_count, num_digits)
@@ -172,10 +81,10 @@ def generalize_numeric_data(number):
                 generalized_number += digit
         return generalized_number
     else:
-        if number < 10:
-            return f"0-10"
-        lower_bound = (number // 10) * 10
-        upper_bound = lower_bound + 10
+        if number < range_size:
+            return f"[0-{range_size}]"
+        lower_bound = (number // range_size) * range_size
+        upper_bound = lower_bound + range_size
         return f"[{lower_bound}-{upper_bound}]"
 
 
@@ -327,11 +236,10 @@ def kanonymization(database_path:str, use_local_database:bool):
     if use_local_database:
         data = pd.read_csv(database_path, sep=",")
         # List of sensitive columns to be anonymized
-        sensitive_attributes = ['age', 'gender']
+        sensitive_attributes = ['Age', 'Gender']
 
         k = 2
         grouped_data = data.groupby(sensitive_attributes)
-
         # Data anonymization
         anon_data = pd.DataFrame(columns=data.columns)
         for group_name, group in grouped_data:
@@ -352,14 +260,53 @@ def kanonymization(database_path:str, use_local_database:bool):
         # pd.set_option('display.max_columns', None)
         pd.set_option('display.max_rows', None)
         # print(anon_data)
-        anon_data.to_csv(f"{database_path}", index=False)
+        anon_data.to_csv(f"{database_path}_kanomymized.csv", index=False)
 
     else:
         print(colored("For external database, there is no k anonymity", "blue"))
 
+@app.route('/')
+def index():
+    files = []
+    local_files = []
+    if os.path.isdir('./local-databases'):
+        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if not f.endswith('_original')]
+        local_files = [f for f in os.listdir('./local-databases') if not f.endswith('_original')]
+
+    if os.path.isdir('./external-databases'):
+        files += [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if not f.endswith('_original')]
+        external_files = [f for f in os.listdir('./external-databases') if not f.endswith('_original')]
+
+    print(files)
+
+    name_database = request.args.get('path')
+    print(name_database)
+    table = pd.DataFrame()
+    table_original = pd.DataFrame()
+    if name_database != None:
+        name_database_splitted = name_database.split('/')
+        for i in files:
+            if name_database == i['path'] and name_database_splitted[-1] in os.listdir("./" + name_database_splitted[1]):
+                table = pd.read_csv(f'{name_database}')
+                table_original = pd.read_csv(f'{name_database}_original')
+    else:
+        table = pd.read_csv(f'{files[0]["path"]}')
+        table_original = pd.read_csv(f'{files[0]["path"]}_original')
+    
+    html_table = table.to_html(classes="table table-striped")
+    html_table_original = table_original.to_html(classes="table table-striped")
+    return render_template('index.html', table=html_table, table_original=html_table_original, files=files)
+
+
+@app.route('/pseudonymized')
+def pseudonymized():
+    data = pd.read_csv('./local-databases/new')
+    counts = data.groupby('NAME').size()
+    return render_template('pseudonymized.html')
+
 
 def perturb_database(database_path:str):
-    read_database(database_path)
+    df = read_database(database_path)
     numeric_columns = [column_name for column_name in df.columns if is_numeric_dtype(df[column_name]) and column_name != "id"]
     print(numeric_columns)
     for column in numeric_columns:
@@ -373,7 +320,7 @@ def add_noise(df:pd.DataFrame, column:str, std_percentage:float=0.3, round_decim
     std = df[column].std()
     # only use a certain percentage of standard deviation
     std *= std_percentage
-    # then use this as the interval to add the random noise
+    # then use this as the interval to add the random noise 
     if is_integer_dtype(df[column]):
         df[column] = df[column].map(lambda x : x + random.randint(-round(std), round(std)))
     elif is_float_dtype(df[column]):
@@ -472,7 +419,6 @@ def main():
             elif option == "4":
                 generalize_database(database_path)
             elif option == "5":
-                database_path, database_path_original = _list_databases_and_read_new_database(use_local_database, databases_folder)
                 perturb_database(database_path)
             elif option == "6":
                 kanonymization(database_path=database_path, use_local_database=use_local_database)

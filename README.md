@@ -9,7 +9,7 @@
 `set FLASK_ENV=env`
 
 ### ** Create own database **
-To create your own database, you need to execute the following command:
+To create your own database, you can execute the following command:
 
 `py create-own-database.py`
 
