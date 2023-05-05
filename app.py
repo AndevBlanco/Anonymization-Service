@@ -154,14 +154,15 @@ def generalize_database(database_path):
     df = read_database(database_path)
     for column in df.columns[1:]:
         if is_integer_dtype(df[column]):
-            range_size = int(input(colored(f"Introduce the range size for the numerical generalization of the column {df[column].name}. If this column should no be set as an interval, type 0: ","yellow")))
-            df[column] = df[column].apply(lambda x : generalize_numeric_data(x, range_size))
+            range_size = int(input(colored(f"Introduce the range size for the numerical generalization of the column {df[column].name}. If this column should be masked, type 0. Otherwise, type a negative number","yellow")))
+            if range_size >=0:
+                df[column] = df[column].apply(lambda x : generalize_numeric_data(x, range_size))
         else:
-            type = input(colored(f"Introduce the type of categorical data of the column {df[column].name}. Possibles categories: job, civil_status or country. If the column does not match them, introduce something else: ", "yellow"))
-            if type in ["job", "civil_status", "civil status", "country"]:
-                df[column] = df[column].apply(lambda x : generalize_categorical_data(x, type))
+            column_type = df[column].name
+            if column_type in ["job", "civil_status", "civil status", "country"]:
+                df[column] = df[column].apply(lambda x : generalize_categorical_data(x, column_type))
     write_database(df, database_path)
-    print(colored("    >> Database generalized","green"))
+    print(colored("    >> Database generalized ()","green"))
 
 
 def generalize_numeric_data(number, range_size):
