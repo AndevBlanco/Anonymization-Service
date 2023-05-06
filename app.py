@@ -363,37 +363,40 @@ def is_k_anonymous(group, k):
     return len(group) >= k
 
 def kanonymization(database_path:str, use_local_database:bool):
-    if use_local_database:
-        data = pd.read_csv(database_path, sep=",")
-        # List of sensitive columns to be anonymized
-        sensitive_attributes = ['Age', 'Gender']
+    data = pd.read_csv(database_path, sep=",")
+    print(colored("""Choose the identifier columns that should be k anonymized. Please input numbers seperated by spaces ("3 4"):""", "yellow"))
+    remaining_identifier_columns = [x for x in data.columns]
+    for index, identifier_column in enumerate(remaining_identifier_columns):
+        print(colored(f"{index}. {identifier_column}", "yellow"))
+    identifier_input = input().strip()
+    selected_columns = sorted([int(x) for x in identifier_input.split(" ")])
+    # List of sensitive columns to be anonymized
+    sensitive_attributes = data.columns[selected_columns].values.tolist()
 
-        k = 2
-        grouped_data = data.groupby(sensitive_attributes)
-        # Data anonymization
-        anon_data = pd.DataFrame(columns=data.columns)
-        for group_name, group in grouped_data:
-            if is_k_anonymous(group, k):
-                anon_group = pd.DataFrame(columns=data.columns)
-                for column in group.columns:
-                    if column in sensitive_attributes:
-                        anon_group[column] = generalize(group[column], 1)
-                    else:
-                        anon_group[column] = group[column]
-                anon_data = pd.concat([anon_data, anon_group])
-            else:
-                anon_group = pd.DataFrame(columns=data.columns)
-                for column in group.columns:
-                    anon_group[column] = suppress(group[column])
-                anon_data = pd.concat([anon_data, anon_group])
+    k = 2
+    grouped_data = data.groupby(sensitive_attributes)
+    # Data anonymization
+    anon_data = pd.DataFrame(columns=data.columns)
+    for group_name, group in grouped_data:
+        if is_k_anonymous(group, k):
+            anon_group = pd.DataFrame(columns=data.columns)
+            for column in group.columns:
+                if column in sensitive_attributes:
+                    anon_group[column] = generalize(group[column], 1)
+                else:
+                    anon_group[column] = group[column]
+            anon_data = pd.concat([anon_data, anon_group])
+        else:
+            anon_group = pd.DataFrame(columns=data.columns)
+            for column in group.columns:
+                anon_group[column] = suppress(group[column])
+            anon_data = pd.concat([anon_data, anon_group])
 
-        # pd.set_option('display.max_columns', None)
-        pd.set_option('display.max_rows', None)
-        # print(anon_data)
-        anon_data.to_csv(f"{database_path}_kanomymized.csv", index=False)
+    # pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_rows', None)
+    # print(anon_data)
+    anon_data.to_csv(f"{database_path}", index=False)
 
-    else:
-        print(colored("For external database, there is no k anonymity", "blue"))
 
 
 def perturb_database(database_path:str):
