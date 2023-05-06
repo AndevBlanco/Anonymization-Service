@@ -57,7 +57,7 @@
       $('#charts-link').on('click', function() {
         $(this).attr('href', '/charts?path=' + $('#database').val());
       });
-
+      console.log("hiodfajdsifonfsa");
       genders = $('#gender-data').val().replace(/'/g, '"'); // reemplaza las comillas simples con dobles
       genders = genders.replace(/(\w+):/g, '"$1":'); // rodea las claves con comillas dobles
       console.log(genders);
@@ -71,7 +71,7 @@
             data: {
                 labels: genderData.labels,
                 datasets: [{
-                    label: 'Género',
+                    label: 'Gender',
                     data: genderData.values,
                     backgroundColor: ['#3e95cd', '#8e5ea2']
                 }]
@@ -79,7 +79,7 @@
             options: {
                 title: {
                     display: true,
-                    text: 'Distribución de género'
+                    text: 'Gender distribution'
                 }
             }
         });
@@ -87,6 +87,7 @@
         $('#sex_not_found').show();
         $('#sex').hide();
       }
+      console.log("holaaa");
       ages = $('#age-data').val().replace(/'/g, '"'); // reemplaza las comillas simples con dobles
       ages = ages.replace(/(\w+):/g, '"$1":'); // rodea las claves con comillas dobles
       console.log(ages);
@@ -100,7 +101,7 @@
             data: {
                 labels: ageData.labels,
                 datasets: [{
-                    label: 'Género',
+                    label: 'Age',
                     data: ageData.values,
                     backgroundColor: ['#3e95cd', '#8e5ea2']
                 }]
@@ -108,7 +109,7 @@
             options: {
                 title: {
                     display: true,
-                    text: 'Distribución de género'
+                    text: 'Age histogram'
                 }
             }
         });

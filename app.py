@@ -17,6 +17,7 @@ import numpy as np
 import re
 import pycountry
 import pycountry_convert as pc
+import shutil
 
 load_dotenv()
 
@@ -47,11 +48,11 @@ def index():
     files = []
     local_files = []
     if os.path.isdir('./local-databases'):
-        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if not f.endswith('_original')]
+        files = [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./local-databases') if f'{f}_original' in os.listdir('./local-databases') and not f.endswith('_original') and not f.endswith('_pseudonyms.json')]
         local_files = [f for f in os.listdir('./local-databases') if not f.endswith('_original')]
 
     if os.path.isdir('./external-databases'):
-        files += [{'path': f'./local-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if not f.endswith('_original')]
+        files += [{'path': f'./external-databases/{f}', 'name': f} for f in os.listdir('./external-databases') if f'{f}_original' in os.listdir('./external-databases') and not f.endswith('_original') and not f.endswith('_pseudonyms.json')]
         external_files = [f for f in os.listdir('./external-databases') if not f.endswith('_original')]
 
     name_database = request.args.get('path')
@@ -63,6 +64,7 @@ def index():
             if name_database == i['path'] and name_database_splitted[-1] in os.listdir("./" + name_database_splitted[1]):
                 table = pd.read_csv(f'{name_database}')
                 table_original = pd.read_csv(f'{name_database}_original')
+                    
     else:
         table = pd.read_csv(f'{files[0]["path"]}')
         table_original = pd.read_csv(f'{files[0]["path"]}_original')
@@ -87,6 +89,7 @@ def charts():
     database = pd.read_csv(path)
     charts = []
     sex_count = pd.DataFrame()
+    gender_data = ""
     if 'gender' in database.columns:
         sex_count = database['gender'].value_counts()
         charts.append('gender')
@@ -100,6 +103,12 @@ def charts():
         sex_count = database['sexo'].value_counts()
         charts.append('sexo')
 
+    if len(sex_count) > 0:
+        gender_data = {
+            'labels': sex_count.index.tolist(),
+            'values': sex_count.values.tolist()
+        }
+
     ages = []
     ages_data = ""
     ages_type = ""
@@ -109,10 +118,8 @@ def charts():
     elif 'edad' in database.columns:
         ages = database['edad']
         ages_type = database['edad'].dtype
-
     if len(ages) > 0:
         if ages_type == 'int':
-            print("holaadafds")
             values, bins = np.histogram(ages, bins=10)
             labels = []
             for i in range(len(bins) - 1):
@@ -122,11 +129,6 @@ def charts():
                 "labels": labels,
                 "values": values.tolist()
             }
-
-    gender_data = {
-        'labels': sex_count.index.tolist(),
-        'values': sex_count.values.tolist()
-    }
 
     return render_template('charts.html', gender_data=gender_data, ages_data=ages_data)
 
