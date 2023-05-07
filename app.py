@@ -152,17 +152,23 @@ def remove_identifiers_local_db(database_path, use_local_database):
     write_database(df, database_path)
 
     
-def generalize_database(database_path):
+def generalize_database(database_path, use_local_database):
     df = read_database(database_path)
     for column in df.columns[1:]:
         if is_integer_dtype(df[column]):
-            range_size = int(input(colored(f"Introduce the range size for the numerical generalization of the column {df[column].name}. If this column should be masked, type 0. Otherwise, type a negative number","yellow")))
+            range_size = int(input(colored(f"""Introduce the range size for the numerical generalization of the column {df[column].name}.
+            If this column should be masked, type 0. Otherwise, type a negative number\n""", "yellow")))
             if range_size >=0:
                 df[column] = df[column].apply(lambda x : generalize_numeric_data(x, range_size))
         else:
-            column_type = df[column].name
-            if column_type in ["job", "civil_status", "civil status", "country"]:
-                df[column] = df[column].apply(lambda x : generalize_categorical_data(x, column_type))
+            column_name = df[column].name
+            if use_local_database:
+                categorical_column_names = ["job", "civil_status", "civil status", "country"]
+            else:
+                categorical_column_names = ["purpose", "credit_history"]
+            
+            if column_name in categorical_column_names:
+                df[column] = df[column].apply(lambda x : generalize_categorical_data(x, column_name, use_local_database))
     write_database(df, database_path)
     print(colored("    >> Database generalized ()","green"))
 
@@ -188,13 +194,20 @@ def generalize_numeric_data(number, range_size):
         return f"[{lower_bound}-{upper_bound}]"
     
 
-def generalize_categorical_data(value, column_type):
-    if column_type =="job":
-        return generalize_job_title(value)
-    elif column_type == "civil_status" or column_type == "civil status":
-        return generalize_civil_status(value)
-    elif column_type == "country":
-        return get_continent(value)
+def generalize_categorical_data(value, column_name, use_local_database):
+    if use_local_database:
+        if column_name =="job":
+            return generalize_job_title(value)
+        elif column_name == "civil_status" or column_name == "civil status":
+            return generalize_civil_status(value)
+        elif column_name == "country":
+            return get_continent(value)
+    else:
+        if column_name == "purpose":
+            return generalize_purpose(value)
+        elif column_name == "credit_history":
+            return generalize_credit_history(value)
+
 
 
 def generalize_job_title(job_title):
@@ -224,6 +237,36 @@ def get_continent(country_name):
         return country_continent_name
     except:
         return 'Unknown country'
+
+def generalize_purpose(purpose):
+    no_problems_str = "No credits taken / All credits paid back"
+    problems_str = "Problems with paying back"
+    purpose_dict = {
+        "car (new)" : "car",
+        "car (used)" : "car",
+        "furniture/equipment" : "household stuff",
+        "radio/television" : "household stuff",
+        "domestic appliances" : "household stuff",
+        "repairs" : "others",
+        "education" : "education/work",
+        "retraining" : "education/work",
+        "business" : "education/work",
+        "others" : "others"
+    }
+    return purpose_dict.get(purpose, purpose)
+
+def generalize_credit_history(credit_history):
+    no_problems_str = "No credits taken / All credits paid back"
+    problems_str = "Problems with paying back"
+    ch_dict = {
+        "no credits taken/ all credits paid back duly" : no_problems_str,
+        "all credits at this bank paid back duly" : no_problems_str,
+        "existing credits paid back duly till now" : no_problems_str,
+        "delay in paying off in the past" : problems_str,
+        "critical account/ other credits existing (not at this bank)" : problems_str
+    }
+    return ch_dict.get(credit_history, credit_history)
+
 
 # Get master key to decrypt or encrypt pseudonyms file
 def get_master_key():
@@ -513,7 +556,7 @@ def main():
             elif option == "3":
                 remove_identifiers_local_db(database_path, use_local_database)
             elif option == "4":
-                generalize_database(database_path)
+                generalize_database(database_path, use_local_database)
             elif option == "5":
                 perturb_database(database_path)
             elif option == "6":
