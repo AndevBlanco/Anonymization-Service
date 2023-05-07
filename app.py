@@ -461,7 +461,8 @@ def add_noise(df:pd.DataFrame, column:str, std_percentage:float=0.2, round_decim
     std *= std_percentage
     # then use this as the interval to add the random noise 
     if is_integer_dtype(df[column]):
-         df[column] = df[column].map(lambda x : x + np.random.normal(scale=std))
+         df[column] = df[column].map(lambda x : x + np.random.normal(scale=std)).round().astype(int)
+
     elif is_float_dtype(df[column]):
         df[column] = df[column].map(lambda x : round(x + random.uniform(-std, std), round_decimals))
     else:
