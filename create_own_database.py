@@ -68,7 +68,7 @@ def create_database(database_name: str, use_local_database: bool):
 def create_external_database(database_name: str):
     external_databases_folder = "external-databases"
     os.makedirs(name=external_databases_folder, exist_ok=True)
-    external_database = f"external-data/german.data"
+    external_database = f"external-databases/german.data"
     column_names = ["chk_acct", "duration", "credit_history", "purpose", "amount", "saving_acct", "present_emp", "installment_rate", "sex", "other_debtor", "present_resid", "property", "age", "other_install", "housing", "n_credits", "job", "n_people", "telephone", "foreign", "response"]
 
     data = pd.read_csv(external_database, sep=" ", names=column_names)
