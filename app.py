@@ -411,7 +411,7 @@ def perturb_database(database_path:str):
     write_database(df, database_path)
 
 
-def add_noise(df:pd.DataFrame, column:str, std_percentage:float=0.3, round_decimals:int=2) -> pd.DataFrame:
+def add_noise(df:pd.DataFrame, column:str, std_percentage:float=0.2, round_decimals:int=2) -> pd.DataFrame:
     # first get standard deviation for this column
     std = df[column].std()
     # only use a certain percentage of standard deviation
@@ -425,7 +425,7 @@ def add_noise(df:pd.DataFrame, column:str, std_percentage:float=0.3, round_decim
         raise ValueError(f"dtype {df[column].dtype} not supported")
     return df
 
-def permutate_column(df:pd.DataFrame, column:str, perm_percentage:float=0.3):
+def permutate_column(df:pd.DataFrame, column:str, perm_percentage:float=0.1):
     series = df[column]
     # Get the number of values to swap
     n = int(len(series) * perm_percentage)
